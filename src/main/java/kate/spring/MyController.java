@@ -9,26 +9,30 @@ import java.util.Map;
 
 @RestController     // extends @Component
 public class MyController {
-    private Map<String, Integer> purchaseList = new HashMap<>();
+    private final Map<String, Integer> purchaseList = new HashMap<>();
 
 
     @GetMapping("/show-purchase-list")
     public String showPurchaseList() {
-        if (purchaseList.size() == 0) {
-            return "The list is empty";
-        }
+        synchronized (purchaseList){
+            if (purchaseList.size() == 0) {
+                return "The list is empty";
+            }
 
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, Integer> item : purchaseList.entrySet()) {
-            sb.append(item);
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<String, Integer> item : purchaseList.entrySet()) {
+                sb.append(item);
+            }
+            return sb.toString();
         }
-        return sb.toString();
     }
 
     @GetMapping("/add-item")
     public String addItem(@RequestParam String name, @RequestParam Integer quantity) {
-        purchaseList.put(name,quantity);
-        return showPurchaseList();
+        synchronized (purchaseList){
+            purchaseList.put(name,quantity);
+            return showPurchaseList();
+        }
     }
 
 

@@ -6,35 +6,30 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController     // extends @Component
 public class MyController {
-    private final Map<String, Integer> purchaseList = new HashMap<>();
-
+    private final Map<String, Integer> purchaseList = new ConcurrentHashMap<>();    // one of the best
 
     @GetMapping("/show-purchase-list")
     public String showPurchaseList() {
-        synchronized (purchaseList){
-            if (purchaseList.size() == 0) {
-                return "The list is empty";
-            }
-
-            StringBuilder sb = new StringBuilder();
-            for (Map.Entry<String, Integer> item : purchaseList.entrySet()) {
-                sb.append(item);
-            }
-            return sb.toString();
+        if (purchaseList.isEmpty()) {       // size to be counted needs to take several blocks; isEmpty -> no blocks
+            return "The list is empty";
         }
+
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, Integer> item : purchaseList.entrySet()) {
+            sb.append(item);
+        }
+        return sb.toString();
     }
 
     @GetMapping("/add-item")
     public String addItem(@RequestParam String name, @RequestParam Integer quantity) {
-        synchronized (purchaseList){
-            purchaseList.put(name,quantity);
-            return showPurchaseList();
-        }
+        purchaseList.put(name, quantity);
+        return showPurchaseList();
     }
-
 
 
     @GetMapping("/hello-world")     // this handler is available via this URL (!not only URL actually)

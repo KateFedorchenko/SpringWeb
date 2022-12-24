@@ -1,9 +1,8 @@
 package kate.spring;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,8 +45,21 @@ public class MyController {
     public String greetings(@RequestParam String name) {
         return "Hello " + name;
     }
+
+    @GetMapping("/get-my-data")
+    public MyData getMyData() {
+        return new MyData(1, "str", new int[]{1, 2, 3}, 65555555555L);
+    }
+
+    @PutMapping("/consume-my-data")
+    public void consumeMyData(@RequestBody MyData myData) {
+        System.out.println(Arrays.toString(myData.getNums()));
+
+    }
 }
 
 
-// create Controller that will have 2 Handler: addToPurchaseList and showPurchaseList.
-// !!!! Controller can be called from many Threads. Thread safe to be made!
+// 1) describe a class PurchaseList that has the following properties: author, item, quantity, maxPrice (maybe more than 1 class!)
+// 2) several Handlers: addItem(name, quantity, maxPrice, author), getItemListByAuthor(author), removeItemFromList(name, quantity)
+// !!! PUT, POST, GET -> think over
+// 3) loadPurchaseList(for all authors!)

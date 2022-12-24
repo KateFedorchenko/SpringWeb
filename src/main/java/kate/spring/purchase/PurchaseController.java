@@ -1,9 +1,6 @@
 package kate.spring.purchase;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -16,22 +13,25 @@ public class PurchaseController {
     private Map<Buyer, List<Item>> shoppingCart = new ConcurrentHashMap<>();
 
     @GetMapping("get-shopping-cart")
-    public List<Item> getItemListByBuyer(@RequestParam String buyerName) {
-        if (shoppingCart.containsKey(buyerName)) {
-            return shoppingCart.get(buyerName);
-        } else {
-            throw new RuntimeException("No such buyer found");
+    public List<Item> getItemListByBuyer(@RequestBody String buyerName) {
+        for (Map.Entry<Buyer, List<Item>> entry : shoppingCart.entrySet()) {
+            if (entry.getKey().getName().equals(buyerName)) {
+                return entry.getValue();
+            }
         }
+        System.out.println("No such buyer found");
+        return null;//
     }
 
     @PutMapping("add-buyer")
-    public String addBuyer(@RequestParam String buyerName){
-        if(!shoppingCart.containsKey(buyerName)){
-            shoppingCart.put(new Buyer(buyerName),new ArrayList<>());
-            return "New buyer added!";
-        } else {
-            return "Such buyer is already in the list";
+    public String addBuyer(@RequestBody String buyerName) {
+        for (Buyer buyer : shoppingCart.keySet()) {
+            if (buyer.getName().equals(buyerName)) {
+                return "Such buyer is already in the list";
+            }
         }
+        shoppingCart.put(new Buyer(buyerName), new ArrayList<>());
+        return "New buyer added!";
     }
 
     @PutMapping("add-item")
@@ -41,39 +41,41 @@ public class PurchaseController {
             @RequestParam BigDecimal price,
             @RequestParam String buyerName
     ) {
-        List<Item> items = shoppingCart.get(buyerName);
-        items.add(new Item(itemName, quantity, price));
-        System.out.println("added");
+        for (Map.Entry<Buyer, List<Item>> entry : shoppingCart.entrySet()) {
+            if (entry.getKey().getName().equals(buyerName)) {
+                entry.getValue().add(new Item(itemName, quantity, price));
+                System.out.println("added");
+                return;
+            }
+        }
+        System.out.println("Cannot add item as no such buyer exists");
     }
 
     @PutMapping("remove-item")
     public String removeItemFromList(@RequestParam String itemName, @RequestParam String buyerName) {
-        if (!shoppingCart.containsKey(buyerName)) {
-            return "No such buyer found";
-        }
-        List<Item> items = shoppingCart.get(buyerName);
-        if (items.isEmpty()) {
-            return "No items found";
-        }
-        for (Item item : items) {
-            String name = item.getItemName();
-            if (name.equals(itemName)) {
-                items.remove(item);
-                return itemName + " has been removed successfully!";
+        for (Buyer buyer : shoppingCart.keySet()) {
+            if (shoppingCart.containsKey(buyer)) {
+                List<Item> items = shoppingCart.get(buyer);
+                for (Item item : items) {
+                    String name = item.getItemName();
+                    if (name.equals(itemName)) {
+                        items.remove(item);
+                        return itemName + " has been removed successfully!";
+                    }
+                }
+                return "Failed. No such item was added to the Cart earlier.";
             }
         }
-        return "Failed. No such item was added to the Cart earlier.";
+        return "No such buyer found";
     }
 
     @GetMapping("get-all-shopping-cart")
-    public void loadPurchaseList() {
-        if(shoppingCart.isEmpty()){
+    public Map<Buyer, List<Item>> loadPurchaseList() {
+        if (shoppingCart.isEmpty()) {
             System.out.println("No buyers are found");
-            return ;
+            return null;
         }
-        for (Map.Entry<Buyer, List<Item>> entry : shoppingCart.entrySet()) {
-            System.out.println(entry);
-        }
+        return shoppingCart;
     }
 }
 

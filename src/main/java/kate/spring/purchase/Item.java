@@ -1,28 +1,14 @@
 package kate.spring.purchase;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
 import java.math.BigDecimal;
 
+@Getter
+@AllArgsConstructor
 public class Item {
-    private String itemName;
-
-    public String getItemName() {
-        return itemName;
-    }
-
-    public Integer getQuantity() {
-        return quantity;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    private Integer quantity;
-    private BigDecimal price;
-
-    public Item(String itemName, Integer quantity, BigDecimal price) {
-        this.itemName = itemName;
-        this.quantity = quantity;
-        this.price = price;
-    }
+    private final String itemName;
+    private final int quantity;
+    private final BigDecimal price;
 }

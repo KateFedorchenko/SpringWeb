@@ -15,15 +15,13 @@ public class PurchaseController {
     private Map<Buyer, List<Item>> shoppingCart = new ConcurrentHashMap<>();
 
     @GetMapping("get-shopping-cart")
-    public String getItemListByBuyer(@RequestBody String buyerName) throws JsonProcessingException {
+    public List<Item> getItemListByBuyer(@RequestBody String buyerName){
         for (Map.Entry<Buyer, List<Item>> entry : shoppingCart.entrySet()) {
             if (entry.getKey().getName().equals(buyerName)) {
-                ObjectMapper mapper = new ObjectMapper();
-                return mapper.writerWithDefaultPrettyPrinter()
-                        .writeValueAsString(entry);
+                return entry.getValue();
             }
         }
-        return "No such buyer found";
+        throw new RuntimeException("No such buyer found");
     }
 
     @PutMapping("add-buyer")
@@ -39,14 +37,12 @@ public class PurchaseController {
 
     @PutMapping("add-item")
     public void addItem(
-            @RequestParam String itemName,
-            @RequestParam Integer quantity,
-            @RequestParam BigDecimal price,
+            @RequestBody Item item,
             @RequestParam String buyerName
     ) {
         for (Map.Entry<Buyer, List<Item>> entry : shoppingCart.entrySet()) {
             if (entry.getKey().getName().equals(buyerName)) {
-                entry.getValue().add(new Item(itemName, quantity, price));
+                entry.getValue().add(item);
                 System.out.println("added");
                 return;
             }
@@ -54,7 +50,7 @@ public class PurchaseController {
         System.out.println("Cannot add item as no such buyer exists");
     }
 
-    @PutMapping("remove-item")
+    @DeleteMapping("remove-item")
     public String removeItemFromList(@RequestParam String itemName, @RequestParam String buyerName) {
         for (Buyer buyer : shoppingCart.keySet()) {
             if (shoppingCart.containsKey(buyer)) {
@@ -73,13 +69,8 @@ public class PurchaseController {
     }
 
     @GetMapping("get-all-shopping-cart")
-    public String loadPurchaseList() throws JsonProcessingException {
-        if (shoppingCart.isEmpty()) {
-            return "No buyers are found";
-        }
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.writerWithDefaultPrettyPrinter()
-                .writeValueAsString(shoppingCart); // need more info
+    public Map<Buyer,List<Item>> loadPurchaseList(){
+        return shoppingCart;
     }
 }
 

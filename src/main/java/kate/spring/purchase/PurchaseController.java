@@ -9,20 +9,16 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 public class PurchaseController {
-    private ShoppingCart shoppingCart;
-
-    public PurchaseController(ShoppingCart shoppingCart) {
-        this.shoppingCart = shoppingCart;
-    }
+    private Map<Buyer, List<Item>> shoppingCart = new ConcurrentHashMap<>();
 
     @GetMapping("get-shopping-cart")
     public List<Item> getItemListByBuyer(@RequestParam String buyerName) {
-        Map<Buyer, List<Item>> shoppingCartMap = shoppingCart.getMap();
-        if (shoppingCartMap.containsKey(buyerName)) {
-            return shoppingCartMap.get(buyerName);
+        if (shoppingCart.containsKey(buyerName)) {
+            return shoppingCart.get(buyerName);
         } else {
             throw new RuntimeException("No such buyer found");
         }
@@ -30,9 +26,12 @@ public class PurchaseController {
 
     @PutMapping("add-buyer")
     public String addBuyer(@RequestParam String buyerName){
-        Map<Buyer, List<Item>> shoppingCartMap = shoppingCart.getMap();
-        shoppingCartMap.put(new Buyer(buyerName),new ArrayList<>());
-        return "New buyer added!";
+        if(!shoppingCart.containsKey(buyerName)){
+            shoppingCart.put(new Buyer(buyerName),new ArrayList<>());
+            return "New buyer added!";
+        } else {
+            return "Such buyer is already in the list";
+        }
     }
 
     @PutMapping("add-item")
@@ -42,19 +41,17 @@ public class PurchaseController {
             @RequestParam BigDecimal price,
             @RequestParam String buyerName
     ) {
-        Map<Buyer, List<Item>> shoppingCartMap = shoppingCart.getMap();
-        List<Item> items = shoppingCartMap.get(buyerName);
+        List<Item> items = shoppingCart.get(buyerName);
         items.add(new Item(itemName, quantity, price));
         System.out.println("added");
     }
 
     @PutMapping("remove-item")
     public String removeItemFromList(@RequestParam String itemName, @RequestParam String buyerName) {
-        Map<Buyer, List<Item>> shoppingCartMap = shoppingCart.getMap();
-        if (!shoppingCartMap.containsKey(buyerName)) {
+        if (!shoppingCart.containsKey(buyerName)) {
             return "No such buyer found";
         }
-        List<Item> items = shoppingCartMap.get(buyerName);
+        List<Item> items = shoppingCart.get(buyerName);
         if (items.isEmpty()) {
             return "No items found";
         }
@@ -70,11 +67,13 @@ public class PurchaseController {
 
     @GetMapping("get-all-shopping-cart")
     public void loadPurchaseList() {
-        Map<Buyer, List<Item>> shoppingCartMap = shoppingCart.getMap();
-        for (Map.Entry<Buyer, List<Item>> buyerListEntry : shoppingCartMap.entrySet()) {
-            System.out.println(buyerListEntry);
+        if(shoppingCart.isEmpty()){
+            System.out.println("No buyers are found");
+            return ;
         }
-
+        for (Map.Entry<Buyer, List<Item>> entry : shoppingCart.entrySet()) {
+            System.out.println(entry);
+        }
     }
 }
 

@@ -1,5 +1,7 @@
 package kate.spring.purchase;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -13,14 +15,15 @@ public class PurchaseController {
     private Map<Buyer, List<Item>> shoppingCart = new ConcurrentHashMap<>();
 
     @GetMapping("get-shopping-cart")
-    public List<Item> getItemListByBuyer(@RequestBody String buyerName) {
+    public String getItemListByBuyer(@RequestBody String buyerName) throws JsonProcessingException {
         for (Map.Entry<Buyer, List<Item>> entry : shoppingCart.entrySet()) {
             if (entry.getKey().getName().equals(buyerName)) {
-                return entry.getValue();
+                ObjectMapper mapper = new ObjectMapper();
+                return mapper.writerWithDefaultPrettyPrinter()
+                        .writeValueAsString(entry);
             }
         }
-        System.out.println("No such buyer found");
-        return null;//
+        return "No such buyer found";
     }
 
     @PutMapping("add-buyer")
@@ -70,12 +73,13 @@ public class PurchaseController {
     }
 
     @GetMapping("get-all-shopping-cart")
-    public Map<Buyer, List<Item>> loadPurchaseList() {
+    public String loadPurchaseList() throws JsonProcessingException {
         if (shoppingCart.isEmpty()) {
-            System.out.println("No buyers are found");
-            return null;
+            return "No buyers are found";
         }
-        return shoppingCart;
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.writerWithDefaultPrettyPrinter()
+                .writeValueAsString(shoppingCart); // need more info
     }
 }
 

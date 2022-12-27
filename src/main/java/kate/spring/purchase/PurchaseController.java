@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @RestController
 public class PurchaseController {
@@ -38,7 +39,7 @@ public class PurchaseController {
         if (!shoppingCart.containsKey(buyerName)) {
             throw new RuntimeException("Cannot add item as no such buyer exists");
         }
-        List<ItemDTO> itemList = shoppingCart.get(buyerName);
+        List<ItemDTO> itemList = new CopyOnWriteArrayList<>(shoppingCart.get(buyerName));
         int indexOfItem = getIndexOfItem(itemList, itemDTO.getItemName());
 
         if (indexOfItem != -1) {
@@ -60,7 +61,7 @@ public class PurchaseController {
             throw new RuntimeException("No such buyer found");
         }
 
-        List<ItemDTO> itemList = shoppingCart.get(buyerName);
+        List<ItemDTO> itemList = new CopyOnWriteArrayList<>(shoppingCart.get(buyerName));
         int indexOfItem = getIndexOfItem(itemList, itemDTO.getItemName());
         if (indexOfItem != -1) {
             ItemDTO currItem = itemList.get(indexOfItem);

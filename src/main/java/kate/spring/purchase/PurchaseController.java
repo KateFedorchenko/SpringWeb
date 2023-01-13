@@ -12,6 +12,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @RestController
 public class PurchaseController {
     private Map<String, List<ItemDTO>> shoppingCart = new ConcurrentHashMap<>();
+    private PurchaseService purchaseService;
+
+    public PurchaseController(PurchaseService purchaseService) {
+        this.purchaseService = purchaseService;
+    }
 
     @GetMapping("get-shopping-cart")
     public List<ItemDTO> getItemListByBuyer(@RequestBody String buyerName) {
@@ -57,28 +62,7 @@ public class PurchaseController {
 
     @DeleteMapping("remove-item")
     public void removeItemFromList(@RequestBody ItemDTO itemDTO, @RequestParam String buyerName) {
-        if (!shoppingCart.containsKey(buyerName)) {
-            throw new RuntimeException("No such buyer found");
-        }
-
-        List<ItemDTO> itemList = new CopyOnWriteArrayList<>(shoppingCart.get(buyerName));
-        int indexOfItem = getIndexOfItem(itemList, itemDTO.getItemName());
-        if (indexOfItem != -1) {
-            ItemDTO currItem = itemList.get(indexOfItem);
-
-            if (itemDTO.getQuantity() > currItem.getQuantity()) {
-                throw new RuntimeException("Failed! The inserted quantity is more than the item has now.");
-            } else if (itemDTO.getQuantity() == currItem.getQuantity()) {
-                itemList.remove(currItem);
-            }
-
-            int newQuantity = currItem.getQuantity() - itemDTO.getQuantity();
-            BigDecimal newPrice = currItem.getPrice().divide(BigDecimal.valueOf(newQuantity));
-            itemList.get(indexOfItem).setQuantity(newQuantity);
-            itemList.get(indexOfItem).setPrice(newPrice);
-        } else {
-            throw new RuntimeException("Failed! No such item was added to the Cart earlier.");
-        }
+        purchaseService.removeItem(buyerName,itemDTO);
     }
 
     @GetMapping("get-all-shopping-cart")
@@ -97,6 +81,5 @@ public class PurchaseController {
 }
 
 
-// 1) AddItem -> No duplicates; Quantity to be summed; Price to be made avg (Total Cost / Total Quantity)
-// 2) RemoveItem -> Quantity to be added and etc
+// 1) Controller only for Service request
 // 3)

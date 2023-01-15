@@ -55,7 +55,7 @@ public class CrosswordController {
                 strings.add(word);
                 wordsMapWithLengthsAsKeys.put(wordLength, strings);
             } else {
-                wordsMapWithLengthsAsKeys.computeIfAbsent(wordLength, k -> new ArrayList<>()).add(word);  // ?
+                wordsMapWithLengthsAsKeys.computeIfAbsent(wordLength, k -> new ArrayList<>()).add(word);
             }
         }
     }

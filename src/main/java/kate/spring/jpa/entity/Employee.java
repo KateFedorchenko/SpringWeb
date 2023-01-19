@@ -11,13 +11,13 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name="sotrudniki")
 public class Employee {
     @Id
     @GeneratedValue
     private Long id;
     private String employeeName;
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id", nullable = false)
     private Department department;
 
     public Employee(String employeeName, Department department) {

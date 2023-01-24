@@ -15,6 +15,7 @@ public class Employee {
     @Id
     @GeneratedValue
     private Long id;
+    @Column(name="empName",nullable = false)
     private String employeeName;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id", nullable = false)

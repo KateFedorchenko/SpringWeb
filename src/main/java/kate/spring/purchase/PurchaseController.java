@@ -28,13 +28,13 @@ public class PurchaseController {
     }
 
     @PutMapping("add-item")
-    public String addItem(@RequestBody Item item) {
-        return purchaseService.addItem(item);
+    public String addItem(@RequestBody ItemDTO itemDTO) {
+        return purchaseService.addItem(itemDTO);
     }
 
     @DeleteMapping("remove-item")
-    public void removeItemFromList(@RequestBody Item item, @RequestParam String buyerName) {
-        purchaseService.removeItem(buyerName,item);
+    public void removeItemFromList(@RequestParam String itemName, @RequestParam String buyerName) {
+        purchaseService.removeItem(itemName, buyerName);
     }
 
     @GetMapping("get-all-shopping-cart")

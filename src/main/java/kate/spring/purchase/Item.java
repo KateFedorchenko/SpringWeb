@@ -18,7 +18,7 @@ public class Item {
     private String itemName;
     private int quantity;
     private BigDecimal price;
-    @ManyToOne(fetch = FetchType.LAZY,cascade=CascadeType.ALL)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "buyer_id", nullable = false)
     private Buyer buyer;
 
@@ -27,11 +27,5 @@ public class Item {
         this.quantity = quantity;
         this.price = price;
         this.buyer = buyer;
-    }
-
-    public Item(String itemName, int quantity, BigDecimal price) {
-        this.itemName = itemName;
-        this.quantity = quantity;
-        this.price = price;
     }
 }

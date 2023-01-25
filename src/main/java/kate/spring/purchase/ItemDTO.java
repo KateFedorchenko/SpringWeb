@@ -18,10 +18,12 @@ public class ItemDTO {
     private  String itemName;
     private  int quantity;
     private  BigDecimal price;
+    private String buyer;
 
-    public ItemDTO(String itemName, int quantity, BigDecimal price) {
+    public ItemDTO(String itemName, int quantity, BigDecimal price, String buyer) {
         this.itemName = itemName;
         this.quantity = quantity;
         this.price = price;
+        this.buyer = buyer;
     }
 }

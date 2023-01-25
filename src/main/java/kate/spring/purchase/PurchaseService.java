@@ -3,16 +3,14 @@ package kate.spring.purchase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.Persistence;
-import jakarta.persistence.Query;
+import kate.spring.conversion.ItemDTOtoEntityConverter;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 @Service
@@ -22,19 +20,17 @@ public class PurchaseService {
     private Map<String, List<ItemDTO>> shoppingCart = new ConcurrentHashMap<>();
 
     public List<ItemDTO> getItemListByBuyer(String buyerName) {
-        doWithTransaction(em -> {
-            if (!buyerExist(buyerName)) {
-                throw new RuntimeException("No such buyer found");
-            }
-            if (!buyerHasItems(buyerName)) {
-                throw new RuntimeException("This buyer has no items");
-            }
-//            List itemsByBuyer = em.createQuery("SELECT * FROM Item WHERE buyer = :buyer", List.class)
-//                    .setParameter("buyer", buyerName)
-//                    .getSingleResult();
-        });
+        if (!buyerExist(buyerName)) {
+            throw new RuntimeException("No such buyer found");
+        }
 
-        return shoppingCart.get(buyerName);
+        List<Item> itemsByBuyer = em.createQuery("SELECT i FROM Item i WHERE i.buyer.name = :buyer", Item.class)
+                .setParameter("buyer", buyerName)
+                .getResultList();
+
+        return itemsByBuyer.stream()
+                .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
+                .toList();
     }
 
     public String addBuyer(String buyerName) {
@@ -47,30 +43,32 @@ public class PurchaseService {
         return "New buyer added!";
     }
 
-    public String addItem(Item item) {
+    private Buyer findBuyerByName(String buyerName) {
+        return em.createQuery("SELECT b FROM Buyer b WHERE b.name = :buyerName", Buyer.class)
+                .setParameter("buyerName", buyerName)
+                .getSingleResult();
+    }
+
+    public String addItem(ItemDTO itemDTO) {
+        if (!buyerExist(itemDTO.getBuyer())) {
+            throw new RuntimeException("Cannot add item as no such buyer exists");
+        }
+        Item item = getItemIfExist(itemDTO.getBuyer(), itemDTO.getItemName());
+        Buyer buyer = findBuyerByName(itemDTO.getBuyer());
         doWithTransaction(em -> {
-            if (!buyerExist(item.getBuyer().getName())) {
-                throw new RuntimeException("Cannot add item as no such buyer exists");
-            }
-            if (buyerHasItems(item.getBuyer().getName())) {
-                Integer newQuantity = oldItemQuantityByBuyer(item) + item.getQuantity();
-                BigDecimal newPrice = (oldItemPriceByBuyer(item).add(item.getPrice())).divide(BigDecimal.valueOf(newQuantity));
-
-//                em.createQuery("UPDATE Item SET quantity = :quantity, price = :price")
-//                        .setParameter("quantity",newQuantity)
-//                        .setParameter("price",newPrice);
-
-                /* ?????? */
-//                Long idItem = em.createQuery("SELECT id FROM Item WHERE buyer_id = :buyer_id and name = :name", Long.class)
-//                        .setParameter("buyer_id", item.getBuyer().getId())
-//                        .setParameter("name", item.getItemName())
-//                        .getSingleResult();
-//
-//                Item itemByBuyerDelete = em.find(Item.class, idItem);
-//                em.remove(itemByBuyerDelete);
-//                em.persist(new Item(item.getItemName(),newQuantity,newPrice,item.getBuyer()));
+            if (item == null) {
+                em.persist(new Item(itemDTO.getItemName(), itemDTO.getQuantity(), itemDTO.getPrice(), buyer));
             } else {
-                em.persist(new Item(item.getItemName(), item.getQuantity(), item.getPrice(), item.getBuyer()));
+                int newQuantity = item.getQuantity() + itemDTO.getQuantity();
+
+                BigDecimal oldCost = item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+                BigDecimal addedCost = itemDTO.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+                BigDecimal newPrice = oldCost.add(addedCost).divide(BigDecimal.valueOf(newQuantity), RoundingMode.HALF_UP);
+
+                item.setQuantity(newQuantity);
+                item.setPrice(newPrice);
+
+                em.persist(item);
             }
         });
         return "New item added";
@@ -93,37 +91,19 @@ public class PurchaseService {
 //        shoppingCart.put(buyerName, itemList);
     }
 
-    public void removeItem(String buyerName, Item item) {
+    public void removeItem(String itemName, String buyerName) {
+        if (!buyerExist(buyerName)) {
+            throw new RuntimeException("No such buyer found");
+        }
+        Item item = getItemIfExist(buyerName, itemName);
+
         doWithTransaction(em -> {
-            if (!buyerExist(item.getBuyer().getName())) {
-                throw new RuntimeException("No such buyer found");
+            if (item == null) {
+                throw new RuntimeException("The item does not exist thus cannot be deleted");
+            } else {
+                em.remove(item);
             }
-            if (!buyerHasItems(item.getBuyer().getName())) {
-                throw new RuntimeException("This buyer has no items");
-            }
-
-
-//            List<ItemDTO> itemList = new CopyOnWriteArrayList<>(shoppingCart.get(buyerName));
-//            int indexOfItem = getIndexOfItem(itemList, itemDTO.getItemName());
-//            if (indexOfItem != -1) {
-//                ItemDTO currItem = itemList.get(indexOfItem);
-//
-//                if (itemDTO.getQuantity() > currItem.getQuantity()) {
-//                    throw new RuntimeException("Failed! The inserted quantity is more than the item has now.");
-//                } else if (itemDTO.getQuantity() == currItem.getQuantity()) {
-//                    itemList.remove(currItem);
-//                } else {
-//                    int newQuantity = currItem.getQuantity() - itemDTO.getQuantity();
-//                    BigDecimal newPrice = currItem.getPrice().divide(BigDecimal.valueOf(newQuantity));
-//                    itemList.get(indexOfItem).setQuantity(newQuantity);
-//                    itemList.get(indexOfItem).setPrice(newPrice);
-//                }
-//            } else {
-//                throw new RuntimeException("Failed! No such item was added to the Cart earlier.");
-//            }
-//            shoppingCart.put(buyerName, itemList);
         });
-
     }
 
     public Map<String, List<ItemDTO>> loadPurchaseList() {
@@ -144,35 +124,21 @@ public class PurchaseService {
         return singleResult == 1;
     }
 
-    private boolean buyerHasItems(String buyerName) {
-        Long countItemsByBuyer = em.createQuery("SELECT COUNT(*) FROM Item i WHERE i.buyer = :buyer", Long.class)
-                .setParameter("buyer", buyerName)
+    // TODO
+    private Item getItemIfExist(String buyerName, String itemName) {
+        Long existItem = em.createQuery("SELECT COUNT(1) FROM Item i WHERE i.buyer.name = :buyerName and i.itemName = :itemName", Long.class)
+                .setParameter("buyerName", buyerName)
+                .setParameter("itemName", itemName)
                 .getSingleResult();
-        return countItemsByBuyer != 0;
-    }
-
-    private Integer oldItemQuantityByBuyer(Item item) {
-        return em.createQuery("SELECT i.quantity FROM Item i WHERE i.name = :name and i.buyer = :buyer", Integer.class)
-                .setParameter("name", item.getItemName())
-                .setParameter("buyer", item.getBuyer())
-                .getSingleResult();
-    }
-
-    private BigDecimal oldItemPriceByBuyer(Item item) {
-        return em.createQuery("SELECT i.price FROM Item i WHERE i.name = :name and i.buyer = :buyer", BigDecimal.class)
-                .setParameter("name", item.getItemName())
-                .setParameter("buyer", item.getBuyer())
-                .getSingleResult();
-    }
-
-
-    private int getIndexOfItem(List<ItemDTO> itemList, String itemName) {
-        for (ItemDTO item : itemList) {
-            if (item.getItemName().equals(itemName)) {
-                return itemList.indexOf(item);
-            }
+        if (existItem != 0) {
+            Item item = em.createQuery("SELECT i FROM Item i WHERE i.buyer.name = :buyerName and i.itemName = :itemName", Item.class)
+                    .setParameter("buyerName", buyerName)
+                    .setParameter("itemName", itemName)
+                    .getSingleResult();
+            return item;
+        } else {
+            return null;
         }
-        return -1;
     }
 }
 

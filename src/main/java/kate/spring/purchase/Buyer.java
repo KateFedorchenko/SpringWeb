@@ -19,8 +19,9 @@ public class Buyer {
     @GeneratedValue
     private Long id;
     private String name;
-    @OneToMany(mappedBy = "buyer")
-    private List<Item> itemList;
+    @OneToMany(mappedBy = "buyer")//field
+    private List<Item> items;
+
 
     public Buyer(String name) {
         this.name = name;

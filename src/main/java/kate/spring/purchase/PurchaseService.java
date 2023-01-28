@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.Persistence;
 import kate.spring.conversion.ItemDTOtoEntityConverter;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -11,6 +12,7 @@ import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
@@ -35,23 +37,23 @@ public class PurchaseService {
         if (!buyerExist(itemDTO.getBuyer())) {
             throw new RuntimeException("Cannot add item as no such buyer exists");
         }
-        Item item = getItemIfExist(itemDTO.getBuyer(), itemDTO.getItemName());
+        Optional<Item> itemOpt = getItemIfExist(itemDTO.getBuyer(), itemDTO.getItemName());
         Buyer buyer = findBuyerByName(itemDTO.getBuyer());
         doWithTransaction(em -> {
-            if (item == null) {
-                em.persist(new Item(itemDTO.getItemName(), itemDTO.getQuantity(), itemDTO.getPrice(), buyer));
-            } else {
-                int newQuantity = item.getQuantity() + itemDTO.getQuantity();
+            Item finalItem = itemOpt.map(item -> {
+                        int newQuantity = item.getQuantity() + itemDTO.getQuantity();
 
-                BigDecimal oldCost = item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
-                BigDecimal addedCost = itemDTO.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
-                BigDecimal newPrice = oldCost.add(addedCost).divide(BigDecimal.valueOf(newQuantity), RoundingMode.HALF_UP);
+                        BigDecimal oldCost = item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+                        BigDecimal addedCost = itemDTO.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+                        BigDecimal newPrice = oldCost.add(addedCost).divide(BigDecimal.valueOf(newQuantity), RoundingMode.HALF_UP);
 
-                item.setQuantity(newQuantity);
-                item.setPrice(newPrice);
+                        item.setQuantity(newQuantity);
+                        item.setPrice(newPrice);
+                        return item;
+                    }
+            ).orElseGet(() -> new Item(itemDTO.getItemName(), itemDTO.getQuantity(), itemDTO.getPrice(), buyer));
 
-                em.persist(item);
-            }
+            em.persist(finalItem);
         });
         return "New item added";
     }
@@ -60,14 +62,13 @@ public class PurchaseService {
         if (!buyerExist(buyerName)) {
             throw new RuntimeException("No such buyer found");
         }
-        Item item = getItemIfExist(buyerName, itemName);
+        Optional<Item> itemOpt = getItemIfExist(buyerName, itemName);
 
         doWithTransaction(em -> {
-            if (item == null) {
-                throw new RuntimeException("The item does not exist thus cannot be deleted");
-            } else {
-                em.remove(item);
-            }
+            itemOpt.ifPresentOrElse(em::remove,
+                    () -> {
+                        throw new RuntimeException("The item does not exist thus cannot be deleted");
+                    });
         });
     }
 
@@ -100,8 +101,7 @@ public class PurchaseService {
                     .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
                     .toList();
 
-
-            newMap.put(buyer.getName(),itemDTOS);
+            newMap.put(buyer.getName(), itemDTOS);
         }
         return newMap;
     }
@@ -111,6 +111,7 @@ public class PurchaseService {
         code.accept(em);
         em.getTransaction().commit();
     }
+
     private Buyer findBuyerByName(String buyerName) {
         return em.createQuery("SELECT b FROM Buyer b WHERE b.name = :buyerName", Buyer.class)
                 .setParameter("buyerName", buyerName)
@@ -126,7 +127,7 @@ public class PurchaseService {
     }
 
     // TODO
-    private Item getItemIfExist(String buyerName, String itemName) {
+    private Optional<Item> getItemIfExist(String buyerName, String itemName) {
         Long existItem = em.createQuery("SELECT COUNT(1) FROM Item i WHERE i.buyer.name = :buyerName and i.itemName = :itemName", Long.class)
                 .setParameter("buyerName", buyerName)
                 .setParameter("itemName", itemName)
@@ -136,9 +137,9 @@ public class PurchaseService {
                     .setParameter("buyerName", buyerName)
                     .setParameter("itemName", itemName)
                     .getSingleResult();
-            return item;
+            return Optional.of(item);
         } else {
-            return null;
+            return Optional.empty();
         }
     }
 }

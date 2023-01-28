@@ -19,7 +19,6 @@ public class Item {
     private int quantity;
     private BigDecimal price;
     @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @JoinColumn(name = "buyer_id", nullable = false)
     private Buyer buyer;
 
     public Item(String itemName, int quantity, BigDecimal price, Buyer buyer) {

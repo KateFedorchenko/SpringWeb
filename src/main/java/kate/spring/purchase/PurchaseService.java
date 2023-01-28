@@ -18,128 +18,91 @@ import java.util.function.Consumer;
 
 @Service
 public class PurchaseService {
-    private EntityManagerFactory emf = Persistence.createEntityManagerFactory("default");
-    private EntityManager em = emf.createEntityManager();
-    private Map<String, List<ItemDTO>> shoppingCart = new ConcurrentHashMap<>();
+    private BuyerRepository buyerRepository;
+    private ItemRepository itemRepository;
+
+    public PurchaseService(BuyerRepository buyerRepository, ItemRepository itemRepository) {
+        this.buyerRepository = buyerRepository;
+        this.itemRepository = itemRepository;
+    }
 
 
     public String addBuyer(String buyerName) {
-        doWithTransaction(em -> {
-            if (buyerExist(buyerName)) {
-                throw new RuntimeException("Such buyer is already in the list");
-            }
-            em.persist(new Buyer(buyerName));
+        buyerRepository.findBuyerByName(buyerName).ifPresent(buyer -> {
+            throw new RuntimeException("Such buyer is already in the list");
         });
+        buyerRepository.save(new Buyer(buyerName));
+
         return "New buyer added!";
     }
 
     public String addItem(ItemDTO itemDTO) {
-        if (!buyerExist(itemDTO.getBuyer())) {
-            throw new RuntimeException("Cannot add item as no such buyer exists");
+        Buyer buyer = buyerRepository.findBuyerByName(itemDTO.getBuyer())
+                .orElseThrow(() -> new RuntimeException("Cannot add item as no such buyer exists"));
+
+        Optional<Item> itemOpt = itemRepository.findByItemNameAndBuyerName(itemDTO.getItemName(), itemDTO.getBuyer());
+        Item item;
+        if (itemOpt.isPresent()) {
+            item = itemOpt.get();
+            int newQuantity = item.getQuantity() + itemDTO.getQuantity();
+
+            BigDecimal oldCost = item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+            BigDecimal addedCost = itemDTO.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+            BigDecimal newPrice = oldCost.add(addedCost).divide(BigDecimal.valueOf(newQuantity), RoundingMode.HALF_UP);
+
+            item.setQuantity(newQuantity);
+            item.setPrice(newPrice);
+        } else {
+            item = new Item(itemDTO.getItemName(), itemDTO.getQuantity(), itemDTO.getPrice(), buyer);
         }
-        Optional<Item> itemOpt = getItemIfExist(itemDTO.getBuyer(), itemDTO.getItemName());
-        Buyer buyer = findBuyerByName(itemDTO.getBuyer());
-        doWithTransaction(em -> {
-            Item finalItem = itemOpt.map(item -> {
-                        int newQuantity = item.getQuantity() + itemDTO.getQuantity();
+        itemRepository.save(item);
 
-                        BigDecimal oldCost = item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
-                        BigDecimal addedCost = itemDTO.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
-                        BigDecimal newPrice = oldCost.add(addedCost).divide(BigDecimal.valueOf(newQuantity), RoundingMode.HALF_UP);
-
-                        item.setQuantity(newQuantity);
-                        item.setPrice(newPrice);
-                        return item;
-                    }
-            ).orElseGet(() -> new Item(itemDTO.getItemName(), itemDTO.getQuantity(), itemDTO.getPrice(), buyer));
-
-            em.persist(finalItem);
-        });
         return "New item added";
     }
 
     public void removeItem(String itemName, String buyerName) {
-        if (!buyerExist(buyerName)) {
-            throw new RuntimeException("No such buyer found");
-        }
-        Optional<Item> itemOpt = getItemIfExist(buyerName, itemName);
+        buyerRepository.findBuyerByName(buyerName).orElseThrow(() -> new RuntimeException("No such buyer found"));
 
-        doWithTransaction(em -> {
-            itemOpt.ifPresentOrElse(em::remove,
-                    () -> {
-                        throw new RuntimeException("The item does not exist thus cannot be deleted");
-                    });
-        });
+        Item item = itemRepository.findByItemNameAndBuyerName(itemName, buyerName)
+                .orElseThrow(() -> new RuntimeException("The item does not exist thus cannot be deleted"));
+
+        itemRepository.remove(item);
     }
 
     public List<ItemDTO> getItemListByBuyer(String buyerName) {
-        if (!buyerExist(buyerName)) {
-            throw new RuntimeException("No such buyer found");
-        }
-
-        List<Item> itemsByBuyer = em.createQuery("SELECT i FROM Item i WHERE i.buyer.name = :buyer", Item.class)
-                .setParameter("buyer", buyerName)
-                .getResultList();
-
-        return itemsByBuyer.stream()
-                .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
-                .toList();
+//        if (!buyerExist(buyerName)) {
+//            throw new RuntimeException("No such buyer found");
+//        }
+//
+//        List<Item> itemsByBuyer = em.createQuery("SELECT i FROM Item i WHERE i.buyer.name = :buyer", Item.class)
+//                .setParameter("buyer", buyerName)
+//                .getResultList();
+//
+//        return itemsByBuyer.stream()
+//                .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
+//                .toList();
+        return null;
     }
 
     public Map<String, List<ItemDTO>> loadPurchaseList() {
-        List<Buyer> buyerList = em.createQuery("SELECT b FROM Buyer b", Buyer.class)
-                .getResultList();
-
-        Map<String, List<ItemDTO>> newMap = new HashMap<>();
-
-        for (Buyer buyer : buyerList) {
-            List<Item> itemList = em.createQuery("SELECT b.items FROM Buyer b WHERE b.name = :buyerName", Item.class)
-                    .setParameter("buyerName", buyer.getName())
-                    .getResultList();
-
-            List<ItemDTO> itemDTOS = itemList.stream()
-                    .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
-                    .toList();
-
-            newMap.put(buyer.getName(), itemDTOS);
-        }
-        return newMap;
+//        List<Buyer> buyerList = em.createQuery("SELECT b FROM Buyer b", Buyer.class)
+//                .getResultList();
+//
+//        Map<String, List<ItemDTO>> newMap = new HashMap<>();
+//
+//        for (Buyer buyer : buyerList) {
+//            List<Item> itemList = em.createQuery("SELECT b.items FROM Buyer b WHERE b.name = :buyerName", Item.class)
+//                    .setParameter("buyerName", buyer.getName())
+//                    .getResultList();
+//
+//            List<ItemDTO> itemDTOS = itemList.stream()
+//                    .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
+//                    .toList();
+//
+//            newMap.put(buyer.getName(), itemDTOS);
+//        }
+//        return newMap;
+        return null;
     }
 
-    private void doWithTransaction(Consumer<EntityManager> code) {
-        em.getTransaction().begin();
-        code.accept(em);
-        em.getTransaction().commit();
-    }
-
-    private Buyer findBuyerByName(String buyerName) {
-        return em.createQuery("SELECT b FROM Buyer b WHERE b.name = :buyerName", Buyer.class)
-                .setParameter("buyerName", buyerName)
-                .getSingleResult();
-    }
-
-    private boolean buyerExist(String buyerName) {
-        Long singleResult = em.createQuery("SELECT COUNT(1) FROM Buyer b WHERE b.name = :name", Long.class)
-                .setParameter("name", buyerName)
-                .getSingleResult();
-
-        return singleResult == 1;
-    }
-
-    // TODO
-    private Optional<Item> getItemIfExist(String buyerName, String itemName) {
-        Long existItem = em.createQuery("SELECT COUNT(1) FROM Item i WHERE i.buyer.name = :buyerName and i.itemName = :itemName", Long.class)
-                .setParameter("buyerName", buyerName)
-                .setParameter("itemName", itemName)
-                .getSingleResult();
-        if (existItem != 0) {
-            Item item = em.createQuery("SELECT i FROM Item i WHERE i.buyer.name = :buyerName and i.itemName = :itemName", Item.class)
-                    .setParameter("buyerName", buyerName)
-                    .setParameter("itemName", itemName)
-                    .getSingleResult();
-            return Optional.of(item);
-        } else {
-            return Optional.empty();
-        }
-    }
 }

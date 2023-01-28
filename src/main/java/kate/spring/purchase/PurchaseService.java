@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,19 +20,6 @@ public class PurchaseService {
     private EntityManager em = emf.createEntityManager();
     private Map<String, List<ItemDTO>> shoppingCart = new ConcurrentHashMap<>();
 
-    public List<ItemDTO> getItemListByBuyer(String buyerName) {
-        if (!buyerExist(buyerName)) {
-            throw new RuntimeException("No such buyer found");
-        }
-
-        List<Item> itemsByBuyer = em.createQuery("SELECT i FROM Item i WHERE i.buyer.name = :buyer", Item.class)
-                .setParameter("buyer", buyerName)
-                .getResultList();
-
-        return itemsByBuyer.stream()
-                .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
-                .toList();
-    }
 
     public String addBuyer(String buyerName) {
         doWithTransaction(em -> {
@@ -41,12 +29,6 @@ public class PurchaseService {
             em.persist(new Buyer(buyerName));
         });
         return "New buyer added!";
-    }
-
-    private Buyer findBuyerByName(String buyerName) {
-        return em.createQuery("SELECT b FROM Buyer b WHERE b.name = :buyerName", Buyer.class)
-                .setParameter("buyerName", buyerName)
-                .getSingleResult();
     }
 
     public String addItem(ItemDTO itemDTO) {
@@ -72,23 +54,6 @@ public class PurchaseService {
             }
         });
         return "New item added";
-
-//
-//        List<ItemDTO> itemList = new CopyOnWriteArrayList<>(shoppingCart.get(buyerName));
-//        int indexOfItem = getIndexOfItem(itemList, itemDTO.getItemName());
-//
-//        if (indexOfItem != -1) {
-//            ItemDTO curItem = itemList.get(indexOfItem);
-//
-//            int newQuantity = curItem.getQuantity() + itemDTO.getQuantity();
-//            BigDecimal newPrice = curItem.getPrice().add(itemDTO.getPrice()).divide(BigDecimal.valueOf(newQuantity));
-//
-//            itemList.get(indexOfItem).setQuantity(newQuantity);
-//            itemList.get(indexOfItem).setPrice(newPrice);
-//        } else {
-//            itemList.add(itemDTO);
-//        }
-//        shoppingCart.put(buyerName, itemList);
     }
 
     public void removeItem(String itemName, String buyerName) {
@@ -106,14 +71,50 @@ public class PurchaseService {
         });
     }
 
+    public List<ItemDTO> getItemListByBuyer(String buyerName) {
+        if (!buyerExist(buyerName)) {
+            throw new RuntimeException("No such buyer found");
+        }
+
+        List<Item> itemsByBuyer = em.createQuery("SELECT i FROM Item i WHERE i.buyer.name = :buyer", Item.class)
+                .setParameter("buyer", buyerName)
+                .getResultList();
+
+        return itemsByBuyer.stream()
+                .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
+                .toList();
+    }
+
     public Map<String, List<ItemDTO>> loadPurchaseList() {
-        return shoppingCart;
+        List<Buyer> buyerList = em.createQuery("SELECT b FROM Buyer b", Buyer.class)
+                .getResultList();
+
+        Map<String, List<ItemDTO>> newMap = new HashMap<>();
+
+        for (Buyer buyer : buyerList) {
+            List<Item> itemList = em.createQuery("SELECT b.items FROM Buyer b WHERE b.name = :buyerName", Item.class)
+                    .setParameter("buyerName", buyer.getName())
+                    .getResultList();
+
+            List<ItemDTO> itemDTOS = itemList.stream()
+                    .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
+                    .toList();
+
+
+            newMap.put(buyer.getName(),itemDTOS);
+        }
+        return newMap;
     }
 
     private void doWithTransaction(Consumer<EntityManager> code) {
         em.getTransaction().begin();
         code.accept(em);
         em.getTransaction().commit();
+    }
+    private Buyer findBuyerByName(String buyerName) {
+        return em.createQuery("SELECT b FROM Buyer b WHERE b.name = :buyerName", Buyer.class)
+                .setParameter("buyerName", buyerName)
+                .getSingleResult();
     }
 
     private boolean buyerExist(String buyerName) {
@@ -141,6 +142,3 @@ public class PurchaseService {
         }
     }
 }
-
-
-// continue doing like this

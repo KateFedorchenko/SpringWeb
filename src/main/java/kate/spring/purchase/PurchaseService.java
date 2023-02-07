@@ -1,10 +1,5 @@
 package kate.spring.purchase;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.Persistence;
-import kate.spring.conversion.ItemDTOtoEntityConverter;
-import org.jetbrains.annotations.Nullable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -13,8 +8,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 
 @Service
 public class PurchaseService {
@@ -55,54 +48,44 @@ public class PurchaseService {
         } else {
             item = new Item(itemDTO.getItemName(), itemDTO.getQuantity(), itemDTO.getPrice(), buyer);
         }
+        buyer.addItem(item);
         itemRepository.save(item);
 
         return "New item added";
     }
 
     public void removeItem(String itemName, String buyerName) {
-        buyerRepository.findBuyerByName(buyerName).orElseThrow(() -> new RuntimeException("No such buyer found"));
+        Buyer buyer = buyerRepository.findBuyerByName(buyerName).orElseThrow(() -> new RuntimeException("No such buyer found"));
 
         Item item = itemRepository.findByItemNameAndBuyerName(itemName, buyerName)
                 .orElseThrow(() -> new RuntimeException("The item does not exist thus cannot be deleted"));
 
+        buyer.removeItem(item);
         itemRepository.remove(item);
     }
 
     public List<ItemDTO> getItemListByBuyer(String buyerName) {
-//        if (!buyerExist(buyerName)) {
-//            throw new RuntimeException("No such buyer found");
-//        }
-//
-//        List<Item> itemsByBuyer = em.createQuery("SELECT i FROM Item i WHERE i.buyer.name = :buyer", Item.class)
-//                .setParameter("buyer", buyerName)
-//                .getResultList();
-//
-//        return itemsByBuyer.stream()
-//                .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
-//                .toList();
-        return null;
+        buyerRepository.findBuyerByName(buyerName).orElseThrow(() -> new RuntimeException("No such buyer found"));
+
+        return itemRepository.findItemsByBuyerName(buyerName).stream()
+                .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
+                .toList();
     }
 
     public Map<String, List<ItemDTO>> loadPurchaseList() {
-//        List<Buyer> buyerList = em.createQuery("SELECT b FROM Buyer b", Buyer.class)
-//                .getResultList();
-//
-//        Map<String, List<ItemDTO>> newMap = new HashMap<>();
-//
-//        for (Buyer buyer : buyerList) {
-//            List<Item> itemList = em.createQuery("SELECT b.items FROM Buyer b WHERE b.name = :buyerName", Item.class)
-//                    .setParameter("buyerName", buyer.getName())
-//                    .getResultList();
-//
-//            List<ItemDTO> itemDTOS = itemList.stream()
-//                    .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
-//                    .toList();
-//
-//            newMap.put(buyer.getName(), itemDTOS);
-//        }
-//        return newMap;
-        return null;
+        List<Buyer> buyers = buyerRepository.findAllBuyers();
+
+        Map<String, List<ItemDTO>> newMap = new HashMap<>();
+
+        for (Buyer buyer : buyers) {
+            newMap.put(
+                    buyer.getName(),
+                    buyer.getItems().stream()
+                            .map(x -> new ItemDTO(x.getItemName(), x.getQuantity(), x.getPrice(), x.getBuyer().getName()))
+                            .toList()
+            );
+        }
+        return newMap;
     }
 
 }

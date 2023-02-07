@@ -18,7 +18,7 @@ public class Item {
     private String itemName;
     private int quantity;
     private BigDecimal price;
-    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @ManyToOne()
     private Buyer buyer;
 
     public Item(String itemName, int quantity, BigDecimal price, Buyer buyer) {

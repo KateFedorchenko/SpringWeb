@@ -5,6 +5,8 @@ import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.Persistence;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -35,4 +37,22 @@ public class ItemRepositoryImpl extends AbstractRepository implements ItemReposi
     public void remove(Item item) {
         doWithTransaction(em -> em.remove(item));
     }
+
+    @Override
+    public List<Item> findItemsByBuyerName(String buyerName) {
+        Long existItemByBuyer = em.createQuery("SELECT COUNT(1) FROM Item i WHERE i.buyer.name = :buyerName", Long.class)
+                .setParameter("buyerName", buyerName)
+                .getSingleResult();
+
+        if (existItemByBuyer != 0) {
+
+            return em.createQuery("SELECT i FROM Item i WHERE i.buyer.name = :buyer", Item.class)
+                    .setParameter("buyer", buyerName)
+                    .getResultList();
+        } else {
+            return Collections.emptyList();
+        }
+    }
 }
+
+
